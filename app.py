@@ -7,9 +7,8 @@ import time
 import pymysql
 from flask import (Flask, render_template, g, session, redirect, url_for,
                 request, flash)
-from flask_bootstrap import Bootstrap
-
 from forms import TodoListForm
+from flask_bootstrap import Bootstrap
 
 SECRET_KEY = 'This is my key'
 
@@ -24,8 +23,8 @@ app.config['PASSWORD'] = 'admin'
 def connect_db():
     """Returns a new connection to the database."""
     return pymysql.connect(host='127.0.0.1',
-            user='laimingxing',
-            passwd='laimingxing',
+            user='root',
+            passwd='123',
             db='test',
             charset='utf8')
 
@@ -68,10 +67,40 @@ def show_todo_list():
             flash(form.errors)
         return redirect(url_for('show_todo_list'))
 
+@app.route('/change/<int:id>', methods=['GET', 'POST'])
+def change_todo_list(id):
+    form = TodoListForm()
+    if request.method == 'GET':
+        sql = 'select id, user_id, title, status, create_time from todolist where id={0}'.format(id)
+        with g.db as cur:
+            cur.execute(sql)
+            for row in cur.fetchall():
+                todo_list = dict(id=row[0], user_id=row[1], title=row[2], status=bool(row[3]), create_time=row[4])
+        form = TodoListForm()
+        form.title.data =todo_list['title']
+        if todo_list['status']:
+            form.status.data='1'
+        else:
+            form.status.data='0'
+        print(form.status.data)
+        return render_template('modify.html', form=form)
+    else:
+        form = TodoListForm()
+        if form.validate_on_submit():
+            with g.db as cur:
+                sql = """update todolist set title='{0}', status='{1}'
+                where id={2}
+            """.format(form.title.data, form.status.data, id)
+                print(sql)
+                cur.execute(sql)
+            flash('You have modify a todolist')
+        else:
+            flash(form.errors)
+        return redirect(url_for('show_todo_list'))
 
-@app.route('/delete')
-def delete_todo_list():
-    id = request.args.get('id', None)
+@app.route('/delete/<int:id>')
+def delete_todo_list(id):
+    # id = request.args.get('id', None)
     if id is None:
         abort(404)
     else:
